@@ -10,11 +10,11 @@ MimiClaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into 
 
 ## What It Does
 
-- **Chat on Telegram** — message your bot from anywhere, get AI replies
-- **Remembers you** — long-term memory + daily notes, survives reboots and power loss
-- **Always on** — plug into USB, it runs 24/7 on ~0.5W
-- **Private** — your conversations stay on your device, not someone else's server
-- **$5 hardware** — just an ESP32-S3 dev board, nothing else
+- **Ultra-light** — No Linux, no Node.js, no bloat — just pure C
+- **Gets work done** — Message it from Telegram, it handles the rest
+- **Self-evolving** — Learns from memory, remembers across reboots
+- **Always on** — USB power, 0.5 W, runs 24/7
+- **$5 total** — One ESP32-S3 board, nothing else
 
 ## How It Works
 
