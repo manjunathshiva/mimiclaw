@@ -27,6 +27,12 @@ esp_err_t llm_set_provider(const char *provider);
  */
 esp_err_t llm_set_model(const char *model);
 
+/**
+ * Save a custom API base URL to NVS (e.g. "http://192.168.1.100:1234" for LM Studio).
+ * Set to empty string to revert to default provider URLs.
+ */
+esp_err_t llm_set_api_base_url(const char *url);
+
 /* ── Tool Use Support ──────────────────────────────────────────── */
 
 typedef struct {

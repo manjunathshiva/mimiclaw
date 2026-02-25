@@ -2,6 +2,18 @@
 
 /* MimiClaw Global Configuration */
 
+/* ── PSRAM-aware allocation ──────────────────────────────────── */
+#include "sdkconfig.h"
+#include <stdlib.h>
+#if CONFIG_SPIRAM
+#include "esp_heap_caps.h"
+#define mimi_alloc(size)    heap_caps_calloc(1, (size), MALLOC_CAP_SPIRAM)
+#define mimi_realloc(p, s)  heap_caps_realloc((p), (s), MALLOC_CAP_SPIRAM)
+#else
+#define mimi_alloc(size)    calloc(1, (size))
+#define mimi_realloc(p, s)  realloc((p), (s))
+#endif
+
 /* Build-time secrets (highest priority, override NVS) */
 #if __has_include("mimi_secrets.h")
 #include "mimi_secrets.h"
@@ -24,6 +36,9 @@
 #endif
 #ifndef MIMI_SECRET_MODEL_PROVIDER
 #define MIMI_SECRET_MODEL_PROVIDER  "anthropic"
+#endif
+#ifndef MIMI_SECRET_API_BASE_URL
+#define MIMI_SECRET_API_BASE_URL    ""
 #endif
 #ifndef MIMI_SECRET_PROXY_HOST
 #define MIMI_SECRET_PROXY_HOST      ""
@@ -68,7 +83,11 @@
 #define MIMI_LLM_API_URL             "https://api.anthropic.com/v1/messages"
 #define MIMI_OPENAI_API_URL          "https://api.openai.com/v1/chat/completions"
 #define MIMI_LLM_API_VERSION         "2023-06-01"
+#if CONFIG_SPIRAM
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
+#else
+#define MIMI_LLM_STREAM_BUF_SIZE     (8 * 1024)
+#endif
 #define MIMI_LLM_LOG_VERBOSE_PAYLOAD 0
 #define MIMI_LLM_LOG_PREVIEW_BYTES   160
 
@@ -86,7 +105,11 @@
 #define MIMI_MEMORY_FILE             "/spiffs/memory/MEMORY.md"
 #define MIMI_SOUL_FILE               "/spiffs/config/SOUL.md"
 #define MIMI_USER_FILE               "/spiffs/config/USER.md"
+#if CONFIG_SPIRAM
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
+#else
+#define MIMI_CONTEXT_BUF_SIZE        (4 * 1024)
+#endif
 #define MIMI_SESSION_MAX_MSGS        20
 
 /* Cron / Heartbeat */
@@ -122,5 +145,6 @@
 #define MIMI_NVS_KEY_API_KEY         "api_key"
 #define MIMI_NVS_KEY_MODEL           "model"
 #define MIMI_NVS_KEY_PROVIDER        "provider"
+#define MIMI_NVS_KEY_API_BASE_URL    "api_base_url"
 #define MIMI_NVS_KEY_PROXY_HOST      "host"
 #define MIMI_NVS_KEY_PROXY_PORT      "port"

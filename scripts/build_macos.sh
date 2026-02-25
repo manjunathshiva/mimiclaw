@@ -6,6 +6,7 @@ IDF_VERSION="${IDF_VERSION:-v5.5.2}"
 ESP_ROOT="${ESP_ROOT:-$HOME/.espressif}"
 DEFAULT_IDF_DIR="$ESP_ROOT/esp-idf-$IDF_VERSION"
 IDF_DIR="${IDF_DIR:-${IDF_PATH:-$DEFAULT_IDF_DIR}}"
+TARGET="${1:-esp32s3}"
 
 if [[ ! -f "$IDF_DIR/export.sh" ]]; then
   echo "ESP-IDF not found at: $IDF_DIR" >&2
@@ -17,5 +18,5 @@ fi
 . "$IDF_DIR/export.sh"
 
 cd "$PROJECT_ROOT"
-idf.py set-target esp32s3
+idf.py set-target "$TARGET"
 idf.py build
