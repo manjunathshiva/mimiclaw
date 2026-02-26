@@ -91,10 +91,13 @@ typedef struct {
     size_t cap;
 } resp_buf_t;
 
-/* mimi_alloc: heap_caps_calloc(SPIRAM) when PSRAM available, else calloc (see mimi_config.h) */
 static esp_err_t resp_buf_init(resp_buf_t *rb, size_t initial_cap)
 {
-    rb->data = mimi_alloc(initial_cap);
+#if CONFIG_SPIRAM
+    rb->data = heap_caps_calloc(1, initial_cap, MALLOC_CAP_SPIRAM);
+#else
+    rb->data = calloc(1, initial_cap);
+#endif
     if (!rb->data) return ESP_ERR_NO_MEM;
     rb->len = 0;
     rb->cap = initial_cap;
@@ -105,7 +108,11 @@ static esp_err_t resp_buf_append(resp_buf_t *rb, const char *data, size_t len)
 {
     while (rb->len + len >= rb->cap) {
         size_t new_cap = rb->cap * 2;
-        char *tmp = mimi_realloc(rb->data, new_cap);
+#if CONFIG_SPIRAM
+        char *tmp = heap_caps_realloc(rb->data, new_cap, MALLOC_CAP_SPIRAM);
+#else
+        char *tmp = realloc(rb->data, new_cap);
+#endif
         if (!tmp) return ESP_ERR_NO_MEM;
         rb->data = tmp;
         rb->cap = new_cap;
