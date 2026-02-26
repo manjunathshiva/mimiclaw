@@ -280,7 +280,7 @@ static int cmd_skill_list(int argc, char **argv)
 
     size_t n = skill_loader_build_summary(buf, 4096);
     if (n == 0) {
-        printf("No skills found under /spiffs/skills/.\n");
+        printf("No skills found under " MIMI_SKILLS_PREFIX ".\n");
     } else {
         printf("=== Skills ===\n%s", buf);
     }
@@ -307,9 +307,9 @@ static bool build_skill_path(const char *name, char *out, size_t out_size)
     if (strchr(name, '/') != NULL || strchr(name, '\\') != NULL) return false;
 
     if (has_md_suffix(name)) {
-        snprintf(out, out_size, "/spiffs/skills/%s", name);
+        snprintf(out, out_size, MIMI_SKILLS_PREFIX "%s", name);
     } else {
-        snprintf(out, out_size, "/spiffs/skills/%s.md", name);
+        snprintf(out, out_size, MIMI_SKILLS_PREFIX "%s.md", name);
     }
     return true;
 }
@@ -375,9 +375,9 @@ static int cmd_skill_search(int argc, char **argv)
     }
 
     const char *keyword = skill_search_args.keyword->sval[0];
-    DIR *dir = opendir("/spiffs");
+    DIR *dir = opendir(MIMI_SPIFFS_BASE);
     if (!dir) {
-        printf("Cannot open /spiffs.\n");
+        printf("Cannot open " MIMI_SPIFFS_BASE ".\n");
         return 1;
     }
 
@@ -395,7 +395,7 @@ static int cmd_skill_search(int argc, char **argv)
         if (strcmp(name + name_len - 3, ".md") != 0) continue;
 
         char full_path[296];
-        snprintf(full_path, sizeof(full_path), "/spiffs/%s", name);
+        snprintf(full_path, sizeof(full_path), MIMI_SPIFFS_BASE "/%s", name);
 
         bool file_matched = contains_nocase(name, keyword);
         int matched_line = 0;
@@ -655,7 +655,7 @@ esp_err_t serial_cli_init(void)
     /* skill_list */
     esp_console_cmd_t skill_list_cmd = {
         .command = "skill_list",
-        .help = "List installed skills from /spiffs/skills/",
+        .help = "List installed skills from " MIMI_SKILLS_PREFIX,
         .func = &cmd_skill_list,
     };
     esp_console_cmd_register(&skill_list_cmd);
