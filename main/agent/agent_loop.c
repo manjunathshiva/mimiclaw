@@ -16,6 +16,7 @@
 
 static const char *TAG = "agent";
 
+/* CONFIG_SPIRAM is set on ESP32-S3 (8MB PSRAM), unset on ESP-WROOM-32 (no PSRAM) */
 #if CONFIG_SPIRAM
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 #else
@@ -183,6 +184,9 @@ static void agent_loop_task(void *arg)
 
     if (!system_prompt || !history_json || !tool_output) {
         ESP_LOGE(TAG, "Failed to allocate buffers");
+        free(system_prompt);
+        free(history_json);
+        free(tool_output);
         vTaskDelete(NULL);
         return;
     }

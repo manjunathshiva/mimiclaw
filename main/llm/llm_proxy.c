@@ -91,6 +91,7 @@ typedef struct {
     size_t cap;
 } resp_buf_t;
 
+/* mimi_alloc: heap_caps_calloc(SPIRAM) when PSRAM available, else calloc (see mimi_config.h) */
 static esp_err_t resp_buf_init(resp_buf_t *rb, size_t initial_cap)
 {
     rb->data = mimi_alloc(initial_cap);
@@ -141,37 +142,38 @@ static bool provider_is_openai(void)
     return strcmp(s_provider, "openai") == 0;
 }
 
-/* Built URL buffer for custom base URL + path */
-static char s_url_buf[LLM_BASE_URL_MAX_LEN + 32] = {0};
-static char s_host_buf[128] = {0};
+/* Thread-safety: llm_api_url() and llm_api_host() are only called from the
+ * agent loop task (single thread), so function-local static buffers are safe. */
 
 static const char *llm_api_url(void)
 {
+    static char url_buf[LLM_BASE_URL_MAX_LEN + 32];
+
     if (s_api_base_url[0]) {
         const char *path = provider_is_openai() ? "/v1/chat/completions" : "/v1/messages";
-        /* Strip trailing slash from base URL before appending path */
         size_t blen = strlen(s_api_base_url);
         if (blen > 0 && s_api_base_url[blen - 1] == '/') blen--;
-        snprintf(s_url_buf, sizeof(s_url_buf), "%.*s%s", (int)blen, s_api_base_url, path);
-        return s_url_buf;
+        snprintf(url_buf, sizeof(url_buf), "%.*s%s", (int)blen, s_api_base_url, path);
+        return url_buf;
     }
     return provider_is_openai() ? MIMI_OPENAI_API_URL : MIMI_LLM_API_URL;
 }
 
 static const char *llm_api_host(void)
 {
+    static char host_buf[128];
+
     if (s_api_base_url[0]) {
-        /* Parse host from URL: skip scheme, extract host (without port) */
         const char *p = s_api_base_url;
         if (strncmp(p, "http://", 7) == 0) p += 7;
         else if (strncmp(p, "https://", 8) == 0) p += 8;
         const char *end = p;
         while (*end && *end != '/' && *end != ':') end++;
         size_t hlen = end - p;
-        if (hlen >= sizeof(s_host_buf)) hlen = sizeof(s_host_buf) - 1;
-        memcpy(s_host_buf, p, hlen);
-        s_host_buf[hlen] = '\0';
-        return s_host_buf;
+        if (hlen >= sizeof(host_buf)) hlen = sizeof(host_buf) - 1;
+        memcpy(host_buf, p, hlen);
+        host_buf[hlen] = '\0';
+        return host_buf;
     }
     return provider_is_openai() ? "api.openai.com" : "api.anthropic.com";
 }
@@ -269,7 +271,9 @@ static esp_err_t llm_http_direct(const char *post_data, resp_buf_t *rb, int *out
             esp_http_client_set_header(client, "Authorization", auth);
         }
     } else {
-        esp_http_client_set_header(client, "x-api-key", s_api_key);
+        if (s_api_key[0]) {
+            esp_http_client_set_header(client, "x-api-key", s_api_key);
+        }
         esp_http_client_set_header(client, "anthropic-version", MIMI_LLM_API_VERSION);
     }
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
@@ -284,7 +288,7 @@ static esp_err_t llm_http_direct(const char *post_data, resp_buf_t *rb, int *out
 
 static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *out_status)
 {
-    /* Determine port: custom base URL may specify a non-443 port */
+    /* Port from base URL: needed for local backends (Ollama=11434, LM Studio=1234) */
     int port = 443;
     if (s_api_base_url[0]) {
         const char *p = s_api_base_url;
@@ -303,24 +307,45 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
     char header[1024];
     int hlen = 0;
     if (provider_is_openai()) {
-        hlen = snprintf(header, sizeof(header),
-            "POST %s HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "Content-Type: application/json\r\n"
-            "Authorization: Bearer %s\r\n"
-            "Content-Length: %d\r\n"
-            "Connection: close\r\n\r\n",
-            llm_api_path(), llm_api_host(), s_api_key, body_len);
+        if (s_api_key[0]) {
+            hlen = snprintf(header, sizeof(header),
+                "POST %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Content-Type: application/json\r\n"
+                "Authorization: Bearer %s\r\n"
+                "Content-Length: %d\r\n"
+                "Connection: close\r\n\r\n",
+                llm_api_path(), llm_api_host(), s_api_key, body_len);
+        } else {
+            hlen = snprintf(header, sizeof(header),
+                "POST %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: %d\r\n"
+                "Connection: close\r\n\r\n",
+                llm_api_path(), llm_api_host(), body_len);
+        }
     } else {
-        hlen = snprintf(header, sizeof(header),
-            "POST %s HTTP/1.1\r\n"
-            "Host: %s\r\n"
-            "Content-Type: application/json\r\n"
-            "x-api-key: %s\r\n"
-            "anthropic-version: %s\r\n"
-            "Content-Length: %d\r\n"
-            "Connection: close\r\n\r\n",
-            llm_api_path(), llm_api_host(), s_api_key, MIMI_LLM_API_VERSION, body_len);
+        if (s_api_key[0]) {
+            hlen = snprintf(header, sizeof(header),
+                "POST %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Content-Type: application/json\r\n"
+                "x-api-key: %s\r\n"
+                "anthropic-version: %s\r\n"
+                "Content-Length: %d\r\n"
+                "Connection: close\r\n\r\n",
+                llm_api_path(), llm_api_host(), s_api_key, MIMI_LLM_API_VERSION, body_len);
+        } else {
+            hlen = snprintf(header, sizeof(header),
+                "POST %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "Content-Type: application/json\r\n"
+                "anthropic-version: %s\r\n"
+                "Content-Length: %d\r\n"
+                "Connection: close\r\n\r\n",
+                llm_api_path(), llm_api_host(), MIMI_LLM_API_VERSION, body_len);
+        }
     }
 
     if (proxy_conn_write(conn, header, hlen) < 0 ||
@@ -362,7 +387,12 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
 
 static esp_err_t llm_http_call(const char *post_data, resp_buf_t *rb, int *out_status)
 {
-    if (http_proxy_is_enabled()) {
+    const char *url = llm_api_url();
+    bool is_https = (strncmp(url, "https://", 8) == 0);
+
+    /* Proxy path only supports HTTPS (TLS over CONNECT tunnel).
+     * Plain HTTP endpoints (e.g. local Ollama) always use the direct path. */
+    if (http_proxy_is_enabled() && is_https) {
         return llm_http_via_proxy(post_data, rb, out_status);
     } else {
         return llm_http_direct(post_data, rb, out_status);

@@ -3,6 +3,8 @@
 /* MimiClaw Global Configuration */
 
 /* ── PSRAM-aware allocation ──────────────────────────────────── */
+/* CONFIG_SPIRAM: set on ESP32-S3 (8MB PSRAM), unset on ESP-WROOM-32 (no PSRAM).
+ * mimi_alloc/mimi_realloc route to PSRAM when available, else standard heap. */
 #include "sdkconfig.h"
 #include <stdlib.h>
 #if CONFIG_SPIRAM
