@@ -112,8 +112,11 @@ void app_main(void)
 
     /* Input */
     button_Init();
+#if CONFIG_SPIRAM
+    /* IMU (QMI8658) is only present on the T-Display-S3 board */
     imu_manager_init();
     imu_manager_set_shake_callback(NULL);
+#endif
 
     /* Phase 1: Core infrastructure */
     ESP_ERROR_CHECK(init_nvs());
