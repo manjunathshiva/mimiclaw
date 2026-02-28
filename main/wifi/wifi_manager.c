@@ -3,9 +3,11 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <time.h>
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
+#include "esp_sntp.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -65,6 +67,17 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Connected! IP: %s", s_ip_str);
         s_retry_count = 0;
         s_connected = true;
+
+        /* Start SNTP time sync */
+        setenv("TZ", MIMI_TIMEZONE, 1);
+        tzset();
+        if (!esp_sntp_enabled()) {
+            esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+            esp_sntp_setservername(0, "pool.ntp.org");
+            esp_sntp_setservername(1, "time.google.com");
+            esp_sntp_init();
+            ESP_LOGI(TAG, "SNTP time sync started");
+        }
 
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }

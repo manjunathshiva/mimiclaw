@@ -51,6 +51,9 @@
 #ifndef MIMI_SECRET_SEARCH_KEY
 #define MIMI_SECRET_SEARCH_KEY      ""
 #endif
+#ifndef MIMI_SECRET_TIMEZONE
+#define MIMI_SECRET_TIMEZONE        ""
+#endif
 
 /* WiFi */
 #define MIMI_WIFI_MAX_RETRY          10
@@ -76,7 +79,8 @@
 #define MIMI_AGENT_SEND_WORKING_STATUS 1
 
 /* Timezone (POSIX TZ format) */
-#define MIMI_TIMEZONE                "PST8PDT,M3.2.0,M11.1.0"
+#define MIMI_TIMEZONE_DEFAULT        "PST8PDT,M3.2.0,M11.1.0"
+#define MIMI_TIMEZONE                (MIMI_SECRET_TIMEZONE[0] ? MIMI_SECRET_TIMEZONE : MIMI_TIMEZONE_DEFAULT)
 
 /* LLM */
 #define MIMI_LLM_DEFAULT_MODEL       "claude-opus-4-5"

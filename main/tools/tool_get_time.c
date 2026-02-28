@@ -140,6 +140,17 @@ esp_err_t tool_get_time_execute(const char *input_json, char *output, size_t out
 {
     ESP_LOGI(TAG, "Fetching current time...");
 
+    /* If system clock is already set (by SNTP), just read it locally */
+    time_t now = time(NULL);
+    if (now > 1700000000) { /* after ~Nov 2023 = clock is set */
+        struct tm local;
+        localtime_r(&now, &local);
+        strftime(output, output_size, "%Y-%m-%d %H:%M:%S %Z (%A)", &local);
+        ESP_LOGI(TAG, "Time (local clock): %s", output);
+        return ESP_OK;
+    }
+
+    /* Fallback: fetch from HTTP Date header */
     esp_err_t err;
     if (http_proxy_is_enabled()) {
         err = fetch_time_via_proxy(output, output_size);
